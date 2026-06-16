@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import RegexValidator
+from django.conf import settings  # <--- Added this import
 from datetime import datetime
 
 class CustomUser(AbstractUser):
@@ -59,7 +60,8 @@ class Question(models.Model):
         ('D', 'D variyant'),
     ]
     
-    test = models.ForeignKey(Test, on_delete=models.CASCADE, related_name='questions')
+    # Using string 'Test' instead of the class name for safety
+    test = models.ForeignKey('Test', on_delete=models.CASCADE, related_name='questions')
     text = models.TextField()
     option_a = models.CharField(max_length=500)
     option_b = models.CharField(max_length=500)
@@ -82,8 +84,14 @@ class Question(models.Model):
 
 class TestResult(models.Model):
     """Test natijasi/topshirish modeli"""
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='test_results')
-    test = models.ForeignKey(Test, on_delete=models.CASCADE, related_name='results')
+    # FIX: Use settings.AUTH_USER_MODEL instead of CustomUser class
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='test_results'
+    )
+    # Using string 'Test' for safety
+    test = models.ForeignKey('Test', on_delete=models.CASCADE, related_name='results')
     score = models.IntegerField()
     total_questions = models.IntegerField(default=20)
     correct_count = models.IntegerField()
@@ -114,8 +122,9 @@ class QuestionAnswer(models.Model):
         ('', 'Javob berilmadi'),
     ]
     
-    test_result = models.ForeignKey(TestResult, on_delete=models.CASCADE, related_name='answers')
-    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+    # Using strings 'TestResult' and 'Question' for safety
+    test_result = models.ForeignKey('TestResult', on_delete=models.CASCADE, related_name='answers')
+    question = models.ForeignKey('Question', on_delete=models.CASCADE)
     user_answer = models.CharField(max_length=1, choices=ANSWER_CHOICES, blank=True)
     is_correct = models.BooleanField(default=False)
     time_spent = models.IntegerField(help_text="Bu savol uchun soniyalar bilan o'tgan vaqt")
