@@ -10,26 +10,33 @@ class CustomUserAdmin(UserAdmin):
     list_display = ('username', 'fullname', 'email', 'university', 'is_staff')
     search_fields = ('username', 'fullname', 'university')
 
+
 class QuestionInline(admin.TabularInline):
     model = Question
     extra = 1
+    # REMOVED 'order'
     fields = ('text', 'image', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer')
+
 
 @admin.register(Test)
 class TestAdmin(admin.ModelAdmin):
     list_display = ('title', 'get_question_count', 'created_at')
     inlines = [QuestionInline]
 
+
 @admin.register(Question)
 class QuestionAdmin(admin.ModelAdmin):
-    list_display = ('test', 'id', 'text', 'image', 'correct_answer')
+    # REMOVED 'order'
+    list_display = ('id', 'test', 'text', 'image', 'correct_answer')
     list_filter = ('test',)
     fields = ('test', 'text', 'image', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer')
+
 
 @admin.register(TestResult)
 class TestResultAdmin(admin.ModelAdmin):
     list_display = ('user', 'test', 'score', 'correct_count', 'total_questions', 'submitted_at')
     readonly_fields = ('user', 'test', 'score', 'correct_count', 'total_questions', 'time_taken', 'submitted_at')
+
 
 @admin.register(QuestionAnswer)
 class QuestionAnswerAdmin(admin.ModelAdmin):
