@@ -4,13 +4,13 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db import transaction
-from .models import CustomUser, Test, Question, TestResult, QuestionAnswer
+from django.utils import timezone
+from .models import CustomUser, Test, Question, TestResult, QuestionAnswer, UserActivity
 from .serializers import (
     CustomUserSerializer, LoginSerializer, TokenSerializer,
     TestSerializer, TestDetailSerializer, TestResultSerializer,
     TestResultListSerializer, SubmitTestSerializer, QuestionAnswerSerializer
 )
-
 
 class AuthViewSet(viewsets.ViewSet):
     """Authentication endpoints"""
@@ -23,6 +23,17 @@ class AuthViewSet(viewsets.ViewSet):
         serializer.is_valid(raise_exception=True)
         
         user = serializer.validated_data['user']
+        
+        # --- LOG ACTIVITY ---
+        UserActivity.objects.create(
+            user=user,
+            action="Tizimga kirdi (Login)",
+            ip_address=request.META.get('REMOTE_ADDR')
+        )
+        user.last_seen = timezone.now()
+        user.save()
+        # --------------------
+        
         refresh = RefreshToken.for_user(user)
         
         return Response({
@@ -53,8 +64,24 @@ class UserViewSet(viewsets.ViewSet):
     def profile(self, request):
         """Get or update current user profile"""
         if request.method == 'GET':
+            # --- LOG ACTIVITY (Portal opened) ---
+            now = timezone.now()
+            # We only create a new activity log if it's been more than 15 mins since last seen
+            # to avoid spamming the DB on every page refresh
+            if not request.user.last_seen or (now - request.user.last_seen).total_seconds() > 900:
+                UserActivity.objects.create(
+                    user=request.user,
+                    action="Portalni ochdi",
+                    ip_address=request.META.get('REMOTE_ADDR')
+                )
+            
+            request.user.last_seen = now
+            request.user.save()
+            # ------------------------------------
+
             serializer = CustomUserSerializer(request.user)
             return Response(serializer.data, status=status.HTTP_200_OK)
+            
         elif request.method == 'PUT':
             serializer = CustomUserSerializer(request.user, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
@@ -91,7 +118,6 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
         time_taken = serializer.validated_data['time_taken']
         
         with transaction.atomic():
-            # Create test result
             test_result = TestResult.objects.create(
                 user=request.user,
                 test=test,
@@ -104,7 +130,6 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
             correct_count = 0
             score = 0
             
-            # Create individual question answers
             for answer_data in answers_data:
                 question_id = answer_data.get('question')
                 try:
@@ -130,7 +155,6 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
                     time_spent=answer_data.get('time_spent', 0)
                 )
             
-            # Update test result with calculated score
             test_result.score = score
             test_result.correct_count = correct_count
             test_result.save()

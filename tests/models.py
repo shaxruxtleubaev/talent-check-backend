@@ -9,6 +9,7 @@ class CustomUser(AbstractUser):
     fullname = models.CharField(max_length=255, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     university = models.CharField(max_length=255, blank=True)
+    last_seen = models.DateTimeField(null=True, blank=True)
     
     # Override username to use passport format AA0000000
     username = models.CharField(
@@ -30,6 +31,22 @@ class CustomUser(AbstractUser):
     
     def __str__(self):
         return f"{self.username} - {self.fullname}"
+
+
+class UserActivity(models.Model):
+    """Foydalanuvchining login va portalga kirish tarixi"""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='activities')
+    action = models.CharField(max_length=100) # 'Login' yoki 'Portalni ochdi'
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Kirish Faolligi"
+        verbose_name_plural = "Kirish Faolliklari"
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.action} - {self.timestamp}"
 
 
 class Test(models.Model):
@@ -72,7 +89,7 @@ class Question(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        ordering = ['id'] # Order by ID now
+        ordering = ['id']
         verbose_name = "Savol"
         verbose_name_plural = "Savollar"
     
@@ -101,7 +118,6 @@ class TestResult(models.Model):
     def get_percentage(self):
         if self.total_questions == 0:
             return 0
-        # Rounded to 2 decimals
         return round((self.correct_count / self.total_questions) * 100, 2)
 
 
