@@ -1,0 +1,69 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block after_field_sets %}
+<div style="margin: 20px 0; padding: 25px; background: #fff; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+    <h2 style="margin-bottom: 25px; color: #1e293b; font-weight: 700;">📊 Akedemik ko'rsatkichlar va Progress</h2>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 25px;">
+        
+        <!-- Radar Chart: Skill Scheme -->
+        <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+            <h4 style="text-align:center">Yo'nalishlar bo'yicha bilim</h4>
+            <canvas id="radarChart"></canvas>
+        </div>
+
+        <!-- Line Chart: Score History -->
+        <div style="background: #f8fafc; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0;">
+            <h4 style="text-align:center">O'sish dinamikasi (Ballar)</h4>
+            <canvas id="lineChart"></canvas>
+        </div>
+
+        <!-- Rank Info -->
+        <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); padding: 30px; border-radius: 15px; color: white; text-align: center;">
+            <span style="display: block; font-size: 14px; opacity: 0.8; text-transform: uppercase;">Umumiy Reyting</span>
+            <span style="font-size: 50px; font-weight: 800;">#{{ user_rank }}</span>
+            <span style="display: block; font-size: 16px;">{{ total_users }} ta talaba ichida</span>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Radar Chart
+        new Chart(document.getElementById('radarChart'), {
+            type: 'radar',
+            data: {
+                labels: {{ chart_labels|safe }},
+                datasets: [{
+                    label: 'Daraja',
+                    data: {{ chart_data|safe }},
+                    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                    borderColor: '#3b82f6',
+                    borderWidth: 2
+                }]
+            },
+            options: { scales: { r: { suggestMin: 0, suggestMax: 100 } } }
+        });
+
+        // Line Chart
+        new Chart(document.getElementById('lineChart'), {
+            type: 'line',
+            data: {
+                labels: {{ history_labels|safe }},
+                datasets: [{
+                    label: 'To\'plangan ball',
+                    data: {{ history_data|safe }},
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: { scales: { y: { beginAtZero: true } } }
+        });
+    });
+</script>
+{% endblock %}

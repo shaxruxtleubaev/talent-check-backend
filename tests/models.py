@@ -51,7 +51,15 @@ class UserActivity(models.Model):
 
 class Test(models.Model):
     """Test/Quiz modeli"""
+    CATEGORIES = [
+        ('ALGO', 'Algoritmik fikrlash'),
+        ('MATH', 'Matematik bilim'),
+        ('CREAT', 'Kreativlik'),
+        ('SPEED', 'Muammo yechish tezligi'),
+    ]
+
     title = models.CharField(max_length=255)
+    category = models.CharField(max_length=10, choices=CATEGORIES, default='ALGO') # ADDED CATEGORY
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
+from django.db.models import Max  # Required for ranking
 from .models import CustomUser, Test, Question, TestResult, QuestionAnswer
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -41,7 +42,6 @@ class QuestionSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Question
-        # REMOVED 'order' FROM HERE
         fields = ('id', 'text', 'image', 'options')
     
     def get_options(self, obj):
@@ -59,7 +59,6 @@ class QuestionWithAnswerSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Question
-        # REMOVED 'order' FROM HERE
         fields = ('id', 'text', 'image', 'options', 'correct_answer')
     
     def get_options(self, obj):
@@ -76,7 +75,7 @@ class TestSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Test
-        fields = ('id', 'title', 'description', 'question_count', 'created_at')
+        fields = ('id', 'title', 'category', 'description', 'question_count', 'created_at')
         read_only_fields = ('created_at',)
 
 
@@ -133,24 +132,64 @@ class TestResultSerializer(serializers.ModelSerializer):
     answers = QuestionAnswerResultSerializer(many=True, read_only=True)
     test_title = serializers.CharField(source='test.title', read_only=True)
     percentage = serializers.SerializerMethodField()
+    rank_info = serializers.SerializerMethodField() # ADDED RANKING
     
     class Meta:
         model = TestResult
-        fields = ('id', 'test_title', 'score', 'correct_count', 'total_questions', 'percentage', 'time_taken', 'submitted_at', 'answers')
+        fields = ('id', 'test_title', 'score', 'correct_count', 'total_questions', 'percentage', 'time_taken', 'submitted_at', 'answers', 'rank_info')
         read_only_fields = ('id', 'submitted_at')
     
     def get_percentage(self, obj):
         return obj.get_percentage()
 
+    def get_rank_info(self, obj):
+        # Get highest score for each unique user for this specific test
+        best_scores = TestResult.objects.filter(test=obj.test).values('user').annotate(max_score=Max('score')).order_by('-max_score')
+        
+        # Create a sorted list of best scores
+        sorted_scores = [x['max_score'] for x in best_scores]
+        total_participants = len(sorted_scores)
+        
+        # Current user's best score for this test
+        user_best = TestResult.objects.filter(user=obj.user, test=obj.test).aggregate(Max('score'))['score__max'] or 0
+        
+        # Calculate rank (1-based index)
+        rank = 1
+        for s in sorted_scores:
+            if s > user_best:
+                rank += 1
+            else:
+                break
+                
+        return {
+            "current_rank": rank,
+            "total_participants": total_participants
+        }
+
 
 class TestResultListSerializer(serializers.ModelSerializer):
     test_title = serializers.CharField(source='test.title', read_only=True)
     percentage = serializers.SerializerMethodField()
+    rank_info = serializers.SerializerMethodField() # ADDED RANKING
     
     class Meta:
         model = TestResult
-        fields = ('id', 'test_title', 'score', 'correct_count', 'total_questions', 'percentage', 'time_taken', 'submitted_at')
+        fields = ('id', 'test_title', 'score', 'correct_count', 'total_questions', 'percentage', 'time_taken', 'submitted_at', 'rank_info')
         read_only_fields = ('submitted_at',)
     
     def get_percentage(self, obj):
         return obj.get_percentage()
+
+    def get_rank_info(self, obj):
+        # Logic repeated for the list view
+        best_scores = TestResult.objects.filter(test=obj.test).values('user').annotate(max_score=Max('score')).order_by('-max_score')
+        sorted_scores = [x['max_score'] for x in best_scores]
+        total_participants = len(sorted_scores)
+        user_best = TestResult.objects.filter(user=obj.user, test=obj.test).aggregate(Max('score'))['score__max'] or 0
+        
+        rank = 1
+        for s in sorted_scores:
+            if s > user_best: rank += 1
+            else: break
+                
+        return {"current_rank": rank, "total_participants": total_participants}
