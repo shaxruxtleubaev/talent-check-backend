@@ -13,9 +13,7 @@ class CustomUserAdmin(UserAdmin):
 class QuestionInline(admin.TabularInline):
     model = Question
     extra = 1
-    # ADDED 'image' HERE
-    fields = ('order', 'text', 'image', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer')
-    ordering = ['order']
+    fields = ('text', 'image', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer')
 
 @admin.register(Test)
 class TestAdmin(admin.ModelAdmin):
@@ -24,10 +22,9 @@ class TestAdmin(admin.ModelAdmin):
 
 @admin.register(Question)
 class QuestionAdmin(admin.ModelAdmin):
-    # ADDED 'image' HERE TOO
-    list_display = ('test', 'order', 'text', 'image', 'correct_answer')
+    list_display = ('test', 'id', 'text', 'image', 'correct_answer')
     list_filter = ('test',)
-    fields = ('test', 'order', 'text', 'image', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer')
+    fields = ('test', 'text', 'image', 'option_a', 'option_b', 'option_c', 'option_d', 'correct_answer')
 
 @admin.register(TestResult)
 class TestResultAdmin(admin.ModelAdmin):
