@@ -122,6 +122,8 @@ LANGUAGES = [
     ('ru', 'Russian'),
 ]
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
@@ -155,7 +157,7 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
-    'https://talent-check.netlify.app/',
+    'https://talent-check.netlify.app',
 ]
 
 # Security Settings for Production

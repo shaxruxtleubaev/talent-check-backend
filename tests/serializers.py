@@ -41,7 +41,8 @@ class QuestionSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Question
-        fields = ('id', 'text', 'options', 'order')
+        # --- ADDED 'image' HERE ---
+        fields = ('id', 'text', 'image', 'options', 'order')
     
     def get_options(self, obj):
         return {
@@ -58,7 +59,8 @@ class QuestionWithAnswerSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Question
-        fields = ('id', 'text', 'options', 'correct_answer', 'order')
+        # --- ADDED 'image' HERE ---
+        fields = ('id', 'text', 'image', 'options', 'correct_answer', 'order')
     
     def get_options(self, obj):
         return {
@@ -86,6 +88,7 @@ class TestDetailSerializer(serializers.ModelSerializer):
         fields = ('id', 'title', 'description', 'questions')
     
     def get_questions(self, obj):
+        # NOTE: If you have more than 20 questions, this selects 20 random ones.
         questions = obj.questions.all().order_by('?')[:20]
         return QuestionSerializer(questions, many=True).data
 
@@ -109,12 +112,16 @@ class SubmitTestSerializer(serializers.Serializer):
 
 class QuestionAnswerResultSerializer(serializers.ModelSerializer):
     question_text = serializers.CharField(source='question.text', read_only=True)
+    # --- ADDED THIS FOR IMAGES IN RESULTS ---
+    question_image = serializers.ImageField(source='question.image', read_only=True)
+    # ----------------------------------------
     correct_answer = serializers.CharField(source='question.correct_answer', read_only=True)
     options = serializers.SerializerMethodField()
     
     class Meta:
         model = QuestionAnswer
-        fields = ('question_text', 'options', 'user_answer', 'correct_answer', 'is_correct', 'time_spent')
+        # --- ADDED 'question_image' HERE ---
+        fields = ('question_text', 'question_image', 'options', 'user_answer', 'correct_answer', 'is_correct', 'time_spent')
     
     def get_options(self, obj):
         return {

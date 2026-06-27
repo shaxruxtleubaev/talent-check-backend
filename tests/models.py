@@ -1,16 +1,14 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import RegexValidator
-from django.conf import settings  # <--- Added this import
+from django.conf import settings 
 from datetime import datetime
 
 class CustomUser(AbstractUser):
-    """Talabalar uchun qo'shimcha ma'lumotlar bilan kengaytirilgan foydalanuvchi modeli"""
     fullname = models.CharField(max_length=255, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     university = models.CharField(max_length=255, blank=True)
     
-    # Override username to use passport format AA0000000
     username = models.CharField(
         max_length=10,
         unique=True,
@@ -33,7 +31,6 @@ class CustomUser(AbstractUser):
 
 
 class Test(models.Model):
-    """Test/Quiz modeli"""
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -52,7 +49,6 @@ class Test(models.Model):
 
 
 class Question(models.Model):
-    """Savol modeli"""
     ANSWER_CHOICES = [
         ('A', 'A variyant'),
         ('B', 'B variyant'),
@@ -60,15 +56,15 @@ class Question(models.Model):
         ('D', 'D variyant'),
     ]
     
-    # Using string 'Test' instead of the class name for safety
     test = models.ForeignKey('Test', on_delete=models.CASCADE, related_name='questions')
     text = models.TextField()
+    image = models.ImageField(upload_to='questions/', null=True, blank=True) # Image added
     option_a = models.CharField(max_length=500)
     option_b = models.CharField(max_length=500)
     option_c = models.CharField(max_length=500)
     option_d = models.CharField(max_length=500)
     correct_answer = models.CharField(max_length=1, choices=ANSWER_CHOICES)
-    order = models.IntegerField(default=0)
+    order = models.IntegerField(default=0, help_text="Bo'sh qoldirilsa, avtomat raqamlanadi", blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -77,20 +73,23 @@ class Question(models.Model):
         unique_together = ['test', 'order']
         verbose_name = "Savol"
         verbose_name_plural = "Savollar"
+
+    # AUTO-ORDER LOGIC
+    def save(self, *args, **kwargs):
+        if not self.order or self.order == 0:
+            last_q = Question.objects.filter(test=self.test).order_by('-order').first()
+            if last_q:
+                self.order = last_q.order + 1
+            else:
+                self.order = 1
+        super().save(*args, **kwargs)
     
     def __str__(self):
         return f"{self.test.title} - Q{self.order}: {self.text[:50]}"
 
 
 class TestResult(models.Model):
-    """Test natijasi/topshirish modeli"""
-    # FIX: Use settings.AUTH_USER_MODEL instead of CustomUser class
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
-        related_name='test_results'
-    )
-    # Using string 'Test' for safety
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='test_results')
     test = models.ForeignKey('Test', on_delete=models.CASCADE, related_name='results')
     score = models.IntegerField()
     total_questions = models.IntegerField(default=20)
@@ -113,7 +112,6 @@ class TestResult(models.Model):
 
 
 class QuestionAnswer(models.Model):
-    """Test natijasidagi savolga bergan javob modeli"""
     ANSWER_CHOICES = [
         ('A', 'A variyant'),
         ('B', 'B variyant'),
@@ -122,7 +120,6 @@ class QuestionAnswer(models.Model):
         ('', 'Javob berilmadi'),
     ]
     
-    # Using strings 'TestResult' and 'Question' for safety
     test_result = models.ForeignKey('TestResult', on_delete=models.CASCADE, related_name='answers')
     question = models.ForeignKey('Question', on_delete=models.CASCADE)
     user_answer = models.CharField(max_length=1, choices=ANSWER_CHOICES, blank=True)
