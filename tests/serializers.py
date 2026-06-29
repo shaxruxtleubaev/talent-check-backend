@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
-from django.db.models import Max  # Required for ranking
+from django.db.models import Max # Required for ranking
 from .models import CustomUser, Test, Question, TestResult, QuestionAnswer
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -72,11 +72,18 @@ class QuestionWithAnswerSerializer(serializers.ModelSerializer):
 
 class TestSerializer(serializers.ModelSerializer):
     question_count = serializers.IntegerField(source='get_question_count', read_only=True)
+    is_completed = serializers.SerializerMethodField()
     
     class Meta:
         model = Test
-        fields = ('id', 'title', 'category', 'description', 'question_count', 'created_at')
+        fields = ('id', 'title', 'category', 'description', 'question_count', 'is_completed', 'created_at')
         read_only_fields = ('created_at',)
+
+    def get_is_completed(self, obj):
+        user = self.context.get('request').user
+        if user.is_anonymous:
+            return False
+        return TestResult.objects.filter(user=user, test=obj).exists()
 
 
 class TestDetailSerializer(serializers.ModelSerializer):
@@ -87,7 +94,7 @@ class TestDetailSerializer(serializers.ModelSerializer):
         fields = ('id', 'title', 'description', 'questions')
     
     def get_questions(self, obj):
-        # Taking 20 random questions
+        # Taking 20 random questions. If there are fewer than 20, .all()[:20] returns all available.
         questions = obj.questions.all().order_by('?')[:20]
         return QuestionSerializer(questions, many=True).data
 
@@ -132,7 +139,7 @@ class TestResultSerializer(serializers.ModelSerializer):
     answers = QuestionAnswerResultSerializer(many=True, read_only=True)
     test_title = serializers.CharField(source='test.title', read_only=True)
     percentage = serializers.SerializerMethodField()
-    rank_info = serializers.SerializerMethodField() # ADDED RANKING
+    rank_info = serializers.SerializerMethodField()
     
     class Meta:
         model = TestResult
@@ -143,34 +150,21 @@ class TestResultSerializer(serializers.ModelSerializer):
         return obj.get_percentage()
 
     def get_rank_info(self, obj):
-        # Get highest score for each unique user for this specific test
-        best_scores = TestResult.objects.filter(test=obj.test).values('user').annotate(max_score=Max('score')).order_by('-max_score')
-        
-        # Create a sorted list of best scores
-        sorted_scores = [x['max_score'] for x in best_scores]
-        total_participants = len(sorted_scores)
-        
-        # Current user's best score for this test
+        # Calculate rank based on every user's highest score for this test
+        best_scores = TestResult.objects.filter(test=obj.test).values('user').annotate(max_s=Max('score')).order_by('-max_s')
+        sorted_scores = [x['max_s'] for x in best_scores]
         user_best = TestResult.objects.filter(user=obj.user, test=obj.test).aggregate(Max('score'))['score__max'] or 0
-        
-        # Calculate rank (1-based index)
         rank = 1
         for s in sorted_scores:
-            if s > user_best:
-                rank += 1
-            else:
-                break
-                
-        return {
-            "current_rank": rank,
-            "total_participants": total_participants
-        }
+            if s > user_best: rank += 1
+            else: break
+        return {"current_rank": rank, "total_participants": len(sorted_scores)}
 
 
 class TestResultListSerializer(serializers.ModelSerializer):
     test_title = serializers.CharField(source='test.title', read_only=True)
     percentage = serializers.SerializerMethodField()
-    rank_info = serializers.SerializerMethodField() # ADDED RANKING
+    rank_info = serializers.SerializerMethodField()
     
     class Meta:
         model = TestResult
@@ -181,15 +175,20 @@ class TestResultListSerializer(serializers.ModelSerializer):
         return obj.get_percentage()
 
     def get_rank_info(self, obj):
-        # Logic repeated for the list view
-        best_scores = TestResult.objects.filter(test=obj.test).values('user').annotate(max_score=Max('score')).order_by('-max_score')
-        sorted_scores = [x['max_score'] for x in best_scores]
-        total_participants = len(sorted_scores)
+        best_scores = TestResult.objects.filter(test=obj.test).values('user').annotate(max_s=Max('score')).order_by('-max_s')
+        sorted_scores = [x['max_s'] for x in best_scores]
         user_best = TestResult.objects.filter(user=obj.user, test=obj.test).aggregate(Max('score'))['score__max'] or 0
-        
         rank = 1
         for s in sorted_scores:
             if s > user_best: rank += 1
             else: break
-                
-        return {"current_rank": rank, "total_participants": total_participants}
+        return {"current_rank": rank, "total_participants": len(sorted_scores)}
+
+class FinalAnalyticsSerializer(serializers.Serializer):
+    """Serializer for the Psychometric report results"""
+    attentiveness_score = serializers.FloatField()
+    preciseness_score = serializers.FloatField()
+    total_time_spent = serializers.IntegerField()
+    total_mistakes = serializers.IntegerField()
+    total_tests_completed = serializers.IntegerField()
+    overall_accuracy = serializers.FloatField()
